@@ -24,11 +24,16 @@ fn solve(input: &str) -> String {
     left_numbers.sort();
     right_numbers.sort();
 
+    // part 1 - get total distance
     let mut total_distance = 0;
+    // part 2 - get total similarity
+    let mut total_similarity = 0;
+
     left_numbers.iter().enumerate().for_each(|(index, value)| {
         total_distance += (right_numbers[index] - value).abs(); // get the absolute value of the substraction to get the actual distance
+        total_similarity += value * (right_numbers.iter().filter(|&x| x == value).count() as i32);
     });
 
     
-    total_distance.to_string()
+    total_similarity.to_string()
 }
