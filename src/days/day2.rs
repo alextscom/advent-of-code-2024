@@ -1,39 +1,80 @@
+fn is_sorted_by(report: &Vec<u8>, compare: fn(u8, u8) -> bool) -> bool {
+    // iterate over the windows of size 2 in the report vector
+    for window in report.windows(2) {                
+        // dynamically check if sorted
+        if !compare(window[0], window[1]) {
+            return false;
+        }
+    }
+    true
+}
+
+fn is_increasing(report: &Vec<u8>) -> bool {
+    is_sorted_by(report, |x, y| x < y)
+}
+fn is_decreasing(report: &Vec<u8>) -> bool {
+    is_sorted_by(report, |x, y| x > y)
+}
+
+fn is_in_range(report: &Vec<u8>) -> bool {
+    for window in report.windows(2) {      
+        // get absolute diff
+        let diff = window[0].abs_diff(window[1]);
+        
+        if diff < 1 || diff > 3 {
+            return false;
+        }
+    }
+    // if all diff are safe
+    true
+}
+
+fn is_safe(report: &Vec<u8>) -> bool {
+    (is_increasing(report) || is_decreasing(report)) && is_in_range(report)
+}
+
+// + '_ is a lifetime annotation -> the returned iterator is tied to the lifetime of the input reference
+fn generate_subreports(report: &Vec<u8>) -> impl Iterator<Item = Vec<u8>> + '_ {
+    // basically bruteforce the solution by creating subreports where one number is sliced out
+    (0..report.len()).map(|index| {
+        let mut subreport = Vec::new();
+        
+        for (report_index, &value) in report.iter().enumerate() {
+            if report_index != index {
+                subreport.push(value);
+            }
+        }
+        
+        subreport
+    })
+}
+
+
 pub fn run() -> String {
     let input = include_str!("../../inputs/day2.txt");
     solve(input)
 }
 
 fn solve(input: &str) -> String {
-    let mut reports: Vec<&str> = input.split('\n').collect(); // split by new line
-    reports.pop(); // get rid of last empty line
+    let reports = input.split_terminator('\n'); // return iterator which gets rid of last empty newline directly
 
-    let mut parsed_numbers_reports: Vec<Vec<i32>> = reports.iter()
-        .map(|numbers_string: &&str| {
-            numbers_string.split_whitespace()
-                .filter_map(|number_str| number_str.parse::<i32>().ok())
+    // directly map over iterator
+    let parsed_numbers_reports: Vec<Vec<u8>> = reports
+        .map(|numbers_string| {
+            numbers_string
+                .split_whitespace()
+                .map(|level| level.parse().expect("not a number"))
                 .collect()
         })
         .collect();
 
-    parsed_numbers_reports.retain(|levels| {
-        // windows = An iterator over overlapping subslices of length -- official doc
-        // check all windows if the following number is increasing by 1 to 3 levels (same level is also not safe)
-        let is_increasing = levels.windows(2).all(|window| {
-            let diff = window[1] as i32 - window[0] as i32;
-            diff >= 1 && diff <= 3
-        });
-        
-        // same here but decreasing
-        let is_decreasing = levels.windows(2).all(|window| {
-            let diff = window[0] as i32 - window[1] as i32;
-            diff >= 1 && diff <= 3
-        });
+    let num_safe_reports = parsed_numbers_reports
+        .iter()
+        .filter(|report| {
+            // check if any of these subreports is safe
+            is_safe(report) || generate_subreports(report).any(|subreport| is_safe(&subreport))
+        })
+        .count();
 
-        is_increasing ||is_decreasing
-    });
-
-    let number_of_safe_reports = parsed_numbers_reports.iter().count();
-    
-
-    number_of_safe_reports.to_string()
+    num_safe_reports.to_string()
 }
