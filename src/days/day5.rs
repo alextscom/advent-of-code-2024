@@ -16,6 +16,8 @@ fn solve(input: &str) -> String {
         })
         .collect();
 
+    let rule_set: HashSet<(i32, i32)> = rules.clone().into_iter().collect();
+
     let input_vectors: Vec<Vec<i32>> = rules_and_input[1]
         .split_terminator("\n")
         .map(|numbers_str| 
@@ -25,18 +27,16 @@ fn solve(input: &str) -> String {
         )
         .collect();
 
-        let (valid_vectors, invalid_vectors): (Vec<Vec<i32>>, Vec<Vec<i32>>) = input_vectors.into_iter()
-            .partition(|vec| {
-                rules.iter().all(|&(first_rule_number, second_rule_number)| {
-                    let position_of_first_rule_number = vec.iter().position(|&x| x == first_rule_number);
-                    let position_of_second_rule_number = vec.iter().position(|&x| x == second_rule_number);
-                    match (position_of_first_rule_number, position_of_second_rule_number) {
-                        (Some(first_position), Some(second_position)) => first_position < second_position,
-                        // default return true because if rules aren't in input, its considered valid
-                        _ => true,
-                    }
+    let follows_rule = |first_number: i32, second_number: i32| rule_set.contains(&(first_number, second_number));
+
+    let (valid_vectors, invalid_vectors): (Vec<Vec<i32>>, Vec<Vec<i32>>) = input_vectors.into_iter()
+        .partition(|vec| {
+            vec.iter().enumerate().all(|(i, &first_number)| {
+                vec.iter().skip(i + 1).all(|&second_number| {
+                    follows_rule(first_number, second_number)
                 })
-            });
+            })
+        });
 
 
     let mut middle_vector_result = 0;
