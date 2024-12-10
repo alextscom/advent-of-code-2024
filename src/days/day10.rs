@@ -53,6 +53,62 @@ fn reachable_nines(grid: Vec<Vec<u8>>) -> Vec<Vec<usize>> {
     result
 }
 
+fn find_routes(grid: Vec<Vec<u8>>) -> usize {
+    let rows = grid.len();
+    let cols = grid[0].len();
+    let mut total_routes = 0;
+
+    let directions = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+
+    // check if valid as anonymous function (defined with let so the anonymous function can read variables in sorrounding scope)
+    let is_valid = |x: usize, y: usize| x < rows && y < cols;
+
+    // get all starting points
+    let mut start_points = Vec::new();
+    for i in 0..rows {
+        for j in 0..cols {
+            if grid[i][j] == 0 {
+                start_points.push((i, j));
+            }
+        }
+    }
+
+    // breitensuche :D
+    for start in start_points {
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+        
+        // (x, y, current_value)
+        queue.push_back((start.0, start.1, 0));
+
+        while let Some((x, y, current_value)) = queue.pop_front() {
+            // add to route count if 9 is reached
+            if grid[x][y] == 9 {
+                total_routes += 1;
+                continue;
+            }
+
+            // add to visited to not visit multiple times
+            visited.insert((x, y, current_value));
+
+            // check neighbors
+            for dir in &directions {
+                let new_x = (x as isize + dir.0) as usize;
+                let new_y = (y as isize + dir.1) as usize;
+
+                if is_valid(new_x, new_y) {
+                    let next_value = grid[new_x][new_y];
+                    if next_value == current_value + 1 && !visited.contains(&(new_x, new_y, next_value)) {
+                        queue.push_back((new_x, new_y, next_value));
+                    }
+                }
+            }
+        }
+    }
+
+    total_routes
+}
+
 fn solve(input: &str) -> String {
     let grid: Vec<Vec<u8>> = input.lines()
         .map(|line| line.chars()
@@ -62,7 +118,7 @@ fn solve(input: &str) -> String {
         .collect::<Vec<Vec<u8>>>();
 
 
-    let result: Vec<Vec<usize>> = reachable_nines(grid);
+    let result: Vec<Vec<usize>> = reachable_nines(grid.clone());
 
     let mut reachable_9s: usize = 0;
     for (_i, row) in result.iter().enumerate() {
@@ -71,6 +127,10 @@ fn solve(input: &str) -> String {
         // debug rows
         // println!("row {}: {:?}, sum: {}", i, row, row_sum);
     }
+
+    let result_distinct_routes = find_routes(grid);
+    
+    println!("distinct routes to 9: {}", result_distinct_routes);
 
     reachable_9s.to_string()
 }
