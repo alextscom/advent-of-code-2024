@@ -1,44 +1,63 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub fn run() -> String {
     let input = include_str!("../../inputs/day12.txt");
     solve(input)
 }
 
-fn traverse(grid: &Vec<Vec<char>>, start_position: (usize, usize), target_char: char, visited: &mut HashSet<(usize, usize)>, perimeter: &mut usize) {
-    let directions = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-    let (start_row, start_col) = start_position;
+fn flood_fill(grid: &Vec<Vec<char>>, visited: &mut HashSet<(usize, usize)>, start: (usize, usize)) -> (usize, usize) {
+    let directions = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+    let mut queue = VecDeque::new();
+    let mut area = 0;
+    let mut perimeter = 0;
+    let char = grid[start.0][start.1];
+    
+    queue.push_back(start);
+    visited.insert(start);
 
-    if grid[start_row][start_col] != target_char {
-        return;
+    while let Some((x, y)) = queue.pop_front() {
+        area += 1;
+        let mut edge_count = 0;
+
+        for &(dx, dy) in &directions {
+            let nx = x as isize + dx;
+            let ny = y as isize + dy;
+
+            if nx >= 0 && ny >= 0 && (nx as usize) < grid.len() && (ny as usize) < grid[0].len() {
+                let neighbor = (nx as usize, ny as usize);
+                if grid[neighbor.0][neighbor.1] == char {
+                    if !visited.contains(&neighbor) {
+                        queue.push_back(neighbor);
+                        visited.insert(neighbor);
+                    }
+                } else {
+                    edge_count += 1;
+                }
+            } else {
+                edge_count += 1;
+            }
+        }
+        perimeter += edge_count;
     }
 
+    (area, perimeter)
+}
 
-    // add position to visited
-    visited.insert(start_position);
+fn calc_area_size_and_perimeter(grid: Vec<Vec<char>>) -> HashMap<char, Vec<(usize, usize)>> {
+    let mut visited = HashSet::new();
+    let mut results = HashMap::new();
 
-    // traverse directions
-    for &(dr, dc) in &directions {
-        let new_row = start_row as isize + dr;
-        let new_col = start_col as isize + dc;
-
-        // check if in grid
-        if new_row >= 0 && new_row < grid.len() as isize && new_col >= 0 && new_col < grid[0].len() as isize {
-            let new_pos = (new_row as usize, new_col as usize);
-            if !visited.contains(&new_pos) && grid[new_row as usize][new_col as usize] == target_char {
-                traverse(grid, new_pos, target_char, visited, perimeter);
+    for i in 0..grid.len() {
+        for j in 0..grid[0].len() {
+            if !visited.contains(&(i, j)) {
+                let char = grid[i][j];
+                let (area, perimeter) = flood_fill(&grid, &mut visited, (i, j));
+                results.entry(char).or_insert(Vec::new()).push((area, perimeter));
             }
         }
     }
-}
 
-fn calc_area_size_and_perimeter(start_position: (usize, usize), target_char: char, grid: &Vec<Vec<char>>) -> HashSet<(usize, usize)> {
-    let mut visited = HashSet::new();
-    let mut area_perimeter = 0usize;
-    
-    traverse(&grid, start_position, target_char, &mut visited, &mut area_perimeter);
-
-    visited
+    results
 }
 
 fn solve(input: &str) -> String {
@@ -48,25 +67,16 @@ fn solve(input: &str) -> String {
         )
         .collect::<Vec<Vec<char>>>();
 
-    let mut unique_chars = HashSet::new();
-    for row in &grid {
-        for &ch in row {
-            unique_chars.insert(ch);
+    let results = calc_area_size_and_perimeter(grid);
+
+    let mut fence_cost = 0usize;
+    for (char, regions) in results {
+        for (area, perimeter) in regions {
+            println!("char: {}, area: {}, perimeter: {}", char, area, perimeter);
+            fence_cost += area * perimeter;
         }
     }
 
-    
-    let mut areas: HashSet<(usize, usize)> = HashSet::new();
 
-    for unique_char in &unique_chars {
-        println!("{}", unique_char);
-    }
-
-    let first_area: HashSet<(usize, usize)> = calc_area_size_and_perimeter((0,0), 'R', &grid);
-    println!("first area: {:?}", first_area);
-
-    println!("unique chars: {:?}", unique_chars);
-    println!("grid: {:?}", grid);
-
-    input.trim().to_string()
+    fence_cost.to_string()
 }
