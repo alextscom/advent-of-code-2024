@@ -38,8 +38,9 @@ fn solve(input: &str) -> String {
             a: Coordinates { x: a_x, y: a_y },
             b: Coordinates { x: b_x, y: b_y },
             prize: Prize {
-                x: prize_x,
-                y: prize_y,
+                // remove 10000000000000 additions for part 1
+                x: 10000000000000 + prize_x,
+                y: 10000000000000 + prize_y,
             },
         });
     }
