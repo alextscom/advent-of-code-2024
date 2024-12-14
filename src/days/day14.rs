@@ -9,6 +9,43 @@ pub fn run() -> String {
     solve(input)
 }
 
+fn print_grid(grid: &Vec<Vec<char>>) {
+    for row in grid {
+        for &cell in row {
+            print!("{}", cell);
+        }
+        println!();
+    }
+}
+
+fn has_gathering(grid: &Vec<Vec<char>>, pattern_width: usize, pattern_height: usize) -> bool {
+    let height = grid.len();
+    let width = grid[0].len();
+
+    // iterate over grid where pattern height and width would fit
+    for y in 0..=height - pattern_height {
+        for x in 0..=width - pattern_width {
+            let mut matches = true;
+            // check if for the given pattern every entry is 1
+            for dy in 0..pattern_height {
+                for dx in 0..pattern_width {
+                    if grid[y + dy][x + dx] != '1' {
+                        matches = false;
+                        break;
+                    }
+                }
+                if !matches {
+                    break;
+                }
+            }
+            if matches {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn solve(input: &str) -> String {
 
     let mut robots: Vec<RobotConfig> = input.lines()
@@ -27,11 +64,21 @@ fn solve(input: &str) -> String {
         })
         .collect();
 
-    let width = 101;
-    let height = 103;
-    let iterations = 100;
+    let width: i32 = 101;
+    let height: i32 = 103;
+    // increased iterations for part 2
+    let iterations: i32 = 10000;
 
-    for _ in 0..iterations {
+    let mut grid = vec![vec!['.'; width as usize]; height as usize];
+
+    for t in 0..iterations {
+        // clear the grid
+        for row in &mut grid {
+            for cell in row.iter_mut() {
+                *cell = '.';
+            }
+        }
+
         // iterate over every robot
         for robot in robots.iter_mut() {
             // update the positions and (with modulo) make sure they teleport to other side of grid when walking out of edges
@@ -45,9 +92,22 @@ fn solve(input: &str) -> String {
             if robot.position.1 < 0 {
                 robot.position.1 += height;
             }
+            // set grid position to 1 if a robot 
+            grid[robot.position.1 as usize][robot.position.0 as usize] = '1';
         }
+
+        // check if grid has a gathering of 1's (MAYBE THIS IS A CHRISTMAS TREE?!?!?!)
+        if has_gathering(&grid, 5, 3) {
+            // print current grid and iteration
+            println!("iteration: {}", t+1);
+            print_grid(&grid);
+            break;
+        }
+        
     }
 
+    // part 1 -> need to change iterations back to 100
+/* 
     // get center x and y of grid
     let center_x = width / 2;
     let center_y = height / 2;
@@ -76,5 +136,6 @@ fn solve(input: &str) -> String {
 
     let product_of_counts = quadrant_counts.iter().product::<i32>();
 
-    product_of_counts.to_string().to_string()
+    product_of_counts.to_string().to_string() */
+    "input".to_string()
 }
