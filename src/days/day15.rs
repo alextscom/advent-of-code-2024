@@ -3,6 +3,139 @@ pub fn run() -> String {
     solve(input)
 }
 
+fn can_be_moved_vertically(grid: &[char], width: usize, box_pos: (usize, usize), current_y: usize, delta_y: isize) -> bool {
+    let new_y = (current_y as isize + delta_y) as usize;
+    let grid_at = |x| grid[new_y * width + x]; // Helper to access grid positions
+
+    if grid_at(box_pos.0) == '#' || grid_at(box_pos.1) == '#' {
+        return false;
+    }
+
+    // function to check if given box char is blocked
+    let is_large_box_blocked = |pos: usize, next_box_pos: (usize, usize), box_char: char| -> bool {
+        grid_at(pos) == box_char && !can_be_moved_vertically(grid, width, next_box_pos, new_y, delta_y)
+    };
+
+    if is_large_box_blocked(box_pos.0, (box_pos.0, box_pos.0 + 1), '[') ||  // large box blocked
+       is_large_box_blocked(box_pos.0, (box_pos.0 - 1, box_pos.0), ']') ||  // left side of box blocked
+       is_large_box_blocked(box_pos.1, (box_pos.1, box_pos.1 + 1), '[') {   // right side of box blocked
+        return false;
+    }
+
+    true
+}
+
+fn move_vertically(grid: &mut [char], width: usize, box_position: (usize, usize), current_y: usize, delta_y: isize) {
+    let new_y = (current_y as isize + delta_y) as usize;
+
+    // check and move large boxes if they are in the way
+    match grid[new_y * width + box_position.0] {
+        '[' => move_vertically(grid, width, (box_position.0, box_position.0 + 1), new_y, delta_y),
+        ']' => move_vertically(grid, width, (box_position.0 - 1, box_position.0), new_y, delta_y),
+        _ => {}
+    }
+
+    if grid[new_y * width + box_position.1] == '[' {
+        move_vertically(grid, width, (box_position.1, box_position.1 + 1), new_y, delta_y);
+    }
+
+    // move current box
+    grid[new_y * width + box_position.0] = grid[current_y * width + box_position.0];
+    grid[new_y * width + box_position.1] = grid[current_y * width + box_position.1];
+
+    // clear previous position
+    grid[current_y * width + box_position.0] = '.';
+    grid[current_y * width + box_position.1] = '.';
+}
+
+fn move_horizontally(grid: &mut [char], width: usize, position: (usize, usize), delta_x: isize) {
+    let start_x = (position.0 as isize + delta_x) as usize;
+    let mut current_x = start_x;
+
+    // move horizontally while encountering large boxes
+    while grid[position.1 * width + current_x] == '[' || grid[position.1 * width + current_x] == ']' {
+        current_x = (current_x as isize + delta_x) as usize;
+    }
+
+    // swap if valid move is found
+    if current_x != start_x && grid[position.1 * width + current_x] == '.' {
+        while current_x != start_x {
+            let move_x = (current_x as isize + (-(delta_x - 1) / 2)) as usize;
+            let left_index = position.1 * width + move_x - 1;
+            let right_index = position.1 * width + move_x;
+            
+            
+            let temp = grid[left_index];
+            grid[left_index] = grid[right_index];
+            grid[right_index] = temp;
+
+            current_x = (current_x as isize - delta_x) as usize;
+        }
+    }
+}
+
+fn run_instructions(
+    mut robot_pos: (usize, usize),
+    directions: Vec<char>,
+    mut grid: Vec<char>,
+    width: usize,
+    height: usize,
+) -> usize {
+    for direction in directions {
+        match direction {
+            '^' | 'v' => {
+                let (new_y, dy) = if direction == '^' {
+                    (robot_pos.1 - 1, -1)
+                } else {
+                    (robot_pos.1 + 1, 1)
+                };
+                let present = match grid[new_y * width + robot_pos.0] {
+                    '[' => Some((robot_pos.0, robot_pos.0 + 1)),
+                    ']' => Some((robot_pos.0 - 1, robot_pos.0)),
+                    _ => None,
+                };
+                if let Some(present) = present {
+                    if can_be_moved_vertically(&grid, width, present, new_y, dy) {
+                        move_vertically(&mut grid, width, present, new_y, dy);
+                    }
+                }
+                if grid[new_y * width + robot_pos.0] == '.' {
+                    robot_pos.1 = new_y;
+                }
+            }
+
+            '>' => {
+                move_horizontally(&mut grid, width, robot_pos, 1);
+                if grid[robot_pos.1 * width + robot_pos.0 + 1] == '.' {
+                    robot_pos.0 += 1;
+                }
+            }
+
+            '<' => {
+                move_horizontally(&mut grid, width, robot_pos, -1);
+                if grid[robot_pos.1 * width + robot_pos.0 - 1] == '.' {
+                    robot_pos.0 -= 1;
+                }
+            }
+
+            _ => panic!("incorrect direction: {}", direction),
+        }
+    }
+
+    let mut total = 0;
+    for y_coord in 0..height {
+        for x_coord in 0..width {
+            let char = grid[y_coord * width + x_coord];
+            // most left side of box is used for calculating
+            if char == '[' {
+                total += 100 * y_coord + x_coord;
+            }
+        }
+    }
+
+    total
+}
+
 fn solve(input: &str) -> String {
     let mut lines = input.lines();
     let mut grid: Vec<Vec<char>> = Vec::new();
@@ -24,9 +157,8 @@ fn solve(input: &str) -> String {
         instructions.push_str(&line);
     }
 
-    println!("{:?}", instructions);
-
-    // convert instructions
+    // keep instructions as char, makes match case easier
+    /* // convert instructions
     let directions: Vec<(i32, i32)> = instructions
         .chars()
         .map(|c| match c {
@@ -36,107 +168,52 @@ fn solve(input: &str) -> String {
             'v' => (0, 1),  // Down
             _ => (0, 0),    // Default case
         })
-        .collect();
+        .collect(); */
 
-    // find robot in grid
-    let mut robot_pos = (0, 0);
-    'outer: for (y, row) in grid.iter().enumerate() {
-        for (x, &cell) in row.iter().enumerate() {
-            if cell == '@' {
-                robot_pos = (x as i32, y as i32);
-                break 'outer;
-            }
-        }
-    }
+    // use height and width instead of cloning/reading grid all the time
+    let height = grid.len();
+    let width = grid[0].len() * 2;
+    let mut wider_grid = vec![vec!['.'; width]; height];
 
-    for dir in directions {
-        let new_x = robot_pos.0 + dir.0;
-        let new_y = robot_pos.1 + dir.1;
-
-        if can_move(&grid, robot_pos, (new_x, new_y)) {
-            // Attempt to move the robot
-            if grid[new_y as usize][new_x as usize] == 'O' {
-                // Try to push presents
-                if push_presents(&mut grid, (new_x, new_y), dir) {
-                    move_robot(&mut grid, &mut robot_pos, (new_x, new_y));
+    // scale up warehouse size
+    for (y, row) in grid.clone().into_iter().enumerate() {
+        for (x, c) in row.into_iter().enumerate() {
+            match c {
+                '#' | '.' => {
+                    wider_grid[y][x * 2] = c;
+                    wider_grid[y][x * 2 + 1] = c;
                 }
-            } else if grid[new_y as usize][new_x as usize] == '.' {
-                // Move to an empty space
-                move_robot(&mut grid, &mut robot_pos, (new_x, new_y));
+                'O' => {
+                    wider_grid[y][x * 2] = '[';
+                    wider_grid[y][x * 2 + 1] = ']';
+                }
+                '@' => {
+                    wider_grid[y][x * 2] = '@';
+                    wider_grid[y][x * 2 + 1] = '.';
+                }
+                _ => panic!("not a valid grid char: {}", c),
             }
         }
     }
 
-    // final grid
-    for row in grid.clone() {
-        println!("{}", row.iter().collect::<String>());
-    }
-
-    let mut total_value = 0;
-    for (y, row) in grid.iter().enumerate() {
-        for (x, &cell) in row.iter().enumerate() {
-            if cell == 'O' {
-                total_value += 100 * y + x;
+    // find robot
+    let mut robot_pos = (0, 0);
+    for y in 0..height {
+        for x in 0..width {
+            if wider_grid[y][x] == '@' {
+                robot_pos = (x, y);
             }
         }
     }
 
-    total_value.to_string()
-}
 
-// check if robot can move to new position
-fn can_move(grid: &Vec<Vec<char>>, current: (i32, i32), new_pos: (i32, i32)) -> bool {
-    let (x, y) = new_pos;
-    let rows = grid.len() as i32;
-    let cols = grid[0].len() as i32;
+    println!("pos robot in scaled up grid: {:?}", robot_pos);
 
-    if x < 0 || y < 0 || x >= cols || y >= rows {
-        return false; // out of bounds
-    }
+    // overwrite robot position initially
+    wider_grid[robot_pos.1][robot_pos.0] = '.';
 
-    let cell = grid[y as usize][x as usize];
-    match cell {
-        '#' => false, // wall -> can't move
-        _ => true,    // empty space
-    }
-}
+    let directions: Vec<char> = instructions.chars().collect();
+    let total = run_instructions(robot_pos, directions, wider_grid.concat(), width, height);
 
-fn push_presents(grid: &mut Vec<Vec<char>>, pos: (i32, i32), dir: (i32, i32)) -> bool {
-    let mut presents: Vec<(i32, i32)> = vec![];
-    let mut current_pos = pos;
-
-    // traverse to collect all presents in the direction
-    while grid[current_pos.1 as usize][current_pos.0 as usize] == 'O' {
-        presents.push(current_pos);
-        current_pos = (current_pos.0 + dir.0, current_pos.1 + dir.1);
-
-        // check if out of bounds
-        if current_pos.0 < 0
-            || current_pos.1 < 0
-            || current_pos.0 >= grid[0].len() as i32
-            || current_pos.1 >= grid.len() as i32
-        {
-            return false; // Can't push out of bounds
-        }
-    }
-
-    // check if next position empty
-    if grid[current_pos.1 as usize][current_pos.0 as usize] != '.' {
-        return false; // Can't push if no empty space behind presents
-    }
-
-    // move presents
-    for &p in presents.iter().rev() {
-        grid[p.1 as usize][p.0 as usize] = '.';
-        grid[(p.1 + dir.1) as usize][(p.0 + dir.0) as usize] = 'O';
-    }
-
-    true
-}
-
-// Helper function to move the robot
-fn move_robot(grid: &mut Vec<Vec<char>>, robot_pos: &mut (i32, i32), new_pos: (i32, i32)) {
-    grid[robot_pos.1 as usize][robot_pos.0 as usize] = '.';
-    grid[new_pos.1 as usize][new_pos.0 as usize] = '@';
-    *robot_pos = new_pos;
+    total.to_string()
 }
