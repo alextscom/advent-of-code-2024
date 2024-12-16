@@ -1,7 +1,5 @@
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::cmp::Ordering;
-
 
 pub fn run() -> String {
     let input = include_str!("../../inputs/day16.txt");
@@ -38,7 +36,7 @@ impl PartialOrd for State {
     }
 }
 
-fn dijkstra(grid: &Vec<Vec<char>>, start: (usize, usize), end: (usize, usize)) -> i32 {
+fn dijkstra(grid: &Vec<Vec<char>>, start: (usize, usize), end: (usize, usize)) -> (i32, HashMap<(usize, usize, usize), i32>) {
     let rows = grid.len();
     let cols = grid[0].len();
 
@@ -55,9 +53,9 @@ fn dijkstra(grid: &Vec<Vec<char>>, start: (usize, usize), end: (usize, usize)) -
     while let Some(State { cost, x, y, direction }) = heap.pop() {
         // check if we reached the end
         if (x, y) == end {
-            return cost;
+            // return costs for part 2
+            return (cost, costs);
         }
-
 
         // 1. move forward in current direction
         let (dx, dy) = DIRECTIONS[direction];
@@ -100,7 +98,73 @@ fn dijkstra(grid: &Vec<Vec<char>>, start: (usize, usize), end: (usize, usize)) -
         }
     }
 
-    -1 // no path (shouldn't happen in puzzle)
+    (-1, costs) // no path (shouldn't happen in puzzle)
+}
+
+fn backtrack_shortest_paths(grid: &Vec<Vec<char>>, costs: &HashMap<(usize, usize, usize), i32>, end: (usize, usize)) -> HashSet<(usize, usize)> {
+    let rows = grid.len();
+    let cols = grid[0].len();
+
+    let min_end_cost = (0..4)
+        .filter_map(|direction| costs.get(&(end.0, end.1, direction)))
+        .min()
+        .cloned()
+        .unwrap_or(i32::MAX);
+
+    let mut on_shortest_path = HashSet::new();
+    let mut shortest_path_queue = VecDeque::new();
+
+    for direction_index in 0..4 {
+        let endpoint_state = (end.0, end.1, direction_index);
+        if let Some(&cost) = costs.get(&endpoint_state) {
+            if cost == min_end_cost {
+                on_shortest_path.insert(endpoint_state);
+                shortest_path_queue.push_back(endpoint_state);
+            }
+        }
+    }
+
+    while let Some((current_x, current_y, current_direction)) = shortest_path_queue.pop_front() {
+        let current_cost = costs[&(current_x, current_y, current_direction)];
+
+        // backwards for forward moves
+        let (delta_x, delta_y) = DIRECTIONS[current_direction];
+        let previous_x = current_x as i32 - delta_x;
+        let previous_y = current_y as i32 - delta_y;
+        if previous_x >= 0 && previous_x < rows as i32 && previous_y >= 0 && previous_y < cols as i32 {
+            let previous_x_index = previous_x as usize;
+            let previous_y_index = previous_y as usize;
+            if grid[previous_x_index][previous_y_index] != '#' {
+                let prev_cost = current_cost - 1;
+                if prev_cost >= 0 {
+                    let prev_state = (previous_x_index, previous_y_index, current_direction);
+                    if let Some(&cost) = costs.get(&prev_state) {
+                        if cost == prev_cost && !on_shortest_path.contains(&prev_state) {
+                            on_shortest_path.insert(prev_state);
+                            shortest_path_queue.push_back(prev_state);
+                        }
+                    }
+                }
+            }
+        }
+
+        // backward for turns
+        let turn_cost = current_cost - 1000;
+        if turn_cost >= 0 {
+            // check both possible directions
+            for &previous_direction in &[(current_direction + 3) % 4, (current_direction + 1) % 4] {
+                let prev_state = (current_x, current_y, previous_direction);
+                if let Some(&cost) = costs.get(&prev_state) {
+                    if cost == turn_cost && !on_shortest_path.contains(&prev_state) {
+                        on_shortest_path.insert(prev_state);
+                        shortest_path_queue.push_back(prev_state);
+                    }
+                }
+            }
+        }
+    }
+
+    on_shortest_path.into_iter().map(|(x, y, _)| (x, y)).collect()
 }
 
 fn solve(input: &str) -> String {
@@ -120,7 +184,9 @@ fn solve(input: &str) -> String {
         }
     }
 
-    let result = dijkstra(&grid, start, end);
+    let (result, costs) = dijkstra(&grid, start, end);
+    // println!("costs: {:?}", costs);
+    let shortest_path_tiles = backtrack_shortest_paths(&grid, &costs, end);
 
-    result.to_string()
+    format!("part1: {}, part2: {}", result, shortest_path_tiles.len())
 }
