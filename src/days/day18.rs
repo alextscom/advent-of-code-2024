@@ -66,11 +66,25 @@ fn solve(input: &str) -> String {
     let start = (0, 0);
     let end = (70, 70);
 
-    let x_bits = 1024;
-    let first_x_elements: Vec<(usize, usize)> = bytes.iter().take(x_bits).cloned().collect();
+    let mut x_bits = 1024;
+    
+    let mut path_blocked = false;
 
-    match simulate_falling_bytes_and_find_path(grid_size, &first_x_elements, start, end) {
-        Some(steps) => steps.to_string(),
-        None => "no path to the exit found!".to_string()
+    while x_bits < bytes.len() && !path_blocked {
+        let first_x_elements: Vec<(usize, usize)> = bytes.iter().take(x_bits).cloned().collect();
+        match simulate_falling_bytes_and_find_path(grid_size, &first_x_elements, start, end) {
+            Some(steps) => println!("{}", steps.to_string()),
+            None => {
+                println!("{}", "no path to the exit found!".to_string());
+                path_blocked = true;
+            }
+        };
+        if !path_blocked {
+            println!("{:?}", bytes[x_bits]);
+        }
+        x_bits += 1
     }
+
+
+    ".".to_string()
 }
