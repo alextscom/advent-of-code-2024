@@ -5,40 +5,41 @@ pub fn run() -> String {
     solve(input)
 }
 
-fn can_arrange(target: &str, allowed_set: &HashSet<&str>, memo: &mut HashMap<String, bool>) -> bool {
+fn count_possible_arrangements(word: &str, allowed_set: &HashSet<&str>, memo: &mut HashMap<String, usize>) -> usize {
     // check if current target is already in memoized set
-    if let Some(&result) = memo.get(target) {
-        return result; 
+    if let Some(&count) = memo.get(word) {
+        return count;
     }
-    if target.is_empty() {
-        return true; // emptry string always true
+    if word.is_empty() {
+        // emptry string always true
+        return 1;
     }
     
+    // just count, no check needed since 0 is a valid outcome
+    let mut total_count = 0;
+    
     for prefix in allowed_set {
-        if target.starts_with(prefix) {
-            let remaining = &target[prefix.len()..];
-            if can_arrange(remaining, allowed_set, memo) {
-                // store processed substring
-                memo.insert(target.to_string(), true);
-                return true;
-            }
+        if word.starts_with(prefix) {
+            let remaining = &word[prefix.len()..];
+            total_count += count_possible_arrangements(remaining, allowed_set, memo);
         }
     }
     
-    memo.insert(target.to_string(), false);
-    false
+    // store processed substring
+    memo.insert(word.to_string(), total_count);
+    total_count
 }
 
-fn check_strings(allowed: Vec<&str>, targets: Vec<&str>) -> Vec<(String, bool)> {
+fn count_all_solutions(allowed: Vec<&str>, targets: Vec<&str>) -> Vec<(String, usize)> {
     // allowed towels hashset
     let allowed_set: HashSet<&str> = allowed.into_iter().collect();
-    // keep track of [arrangement, possble]
+    // keep track of [arrangement, number of possible solutions]
     let mut results = Vec::new();
     
     for target in targets {
         let mut memo = HashMap::new(); // to store already processed substrings
-        let arrangement_possible = can_arrange(target, &allowed_set, &mut memo);
-        results.push((target.to_string(), arrangement_possible));
+        let count = count_possible_arrangements(target, &allowed_set, &mut memo);
+        results.push((target.to_string(), count));
     }
     
     results
@@ -51,14 +52,12 @@ fn solve(input: &str) -> String {
     // println!("parsed_towls_designs: {:?}", parsed_towel_designs);
     // println!("parsed_target_towel_arrangment: {:?}", parsed_target_towel_arrangment);
 
-    let results = check_strings(parsed_towel_designs, parsed_target_towel_arrangment);
+    let results = count_all_solutions(parsed_towel_designs, parsed_target_towel_arrangment);
     
-    let mut possible_count = 0;
-    for (target, arrangement_possible) in results {
-        if arrangement_possible {
-            possible_count += 1
-        }
-        // println!("{}: {}", target, if can_create { "Yes" } else { "No" });
+    let mut sum_possible_counts = 0;
+    for (target, count) in results {
+        sum_possible_counts += count;
+        println!("{}: {}", target, count);
     }
-    possible_count.to_string()
+    sum_possible_counts.to_string()
 }
