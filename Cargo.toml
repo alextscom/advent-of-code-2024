@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 regex = "1.8"
+itertools = "0.13.0"
+hashbrown = "0.7.2"
