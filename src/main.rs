@@ -35,6 +35,7 @@ fn main() {
         "18" => days::day18::run(),
         "19" => days::day19::run(),
         "20" => days::day20::run(),
+        "21" => days::day21::run(),
         _ => {
             eprintln!("Day {} not implemented yet!", day);
             return;
